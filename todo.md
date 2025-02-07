@@ -7,5 +7,8 @@ Next task-
 5. [x] Use reducer
 6. [x] Usecallback
 7. [x] Usememo
-8. [ ] UseEffect
-9. [ ] properFunction for React.createElement
+8. [x] UseEffect
+9. [ ] Refactor code
+10. [ ] Hook validation
+11. [ ] properFunction for React.createElement
+

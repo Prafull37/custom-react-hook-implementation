@@ -73,6 +73,9 @@ function shallowEqual(objA, objB) {
 
 // === end of external helpers ===
 
+
+
+
 const noop = () => {};
 
 const utils = {
@@ -163,6 +166,35 @@ const ReactDOM = {
   },
 };
 
+
+const initalizeHook = (initialValue,type,{getPropsForHookRegistration=noop}={})=>{
+  const currentComponent = React.getCurrentRunningComponent();
+  let hookUniqueId;
+
+  if (utils.isMounting(currentComponent.status)) {
+    hookUniqueId = utils.generateHookUniqueId();
+
+    const hookValue = {
+      type,
+      value:
+        typeof initialValue === 'function' ? initialValue() : initialValue,
+      ...(getPropsForHookRegistration() || {})
+    };
+    utils.__doNotTouchRegisterHookToComponent(
+      currentComponent,
+      hookUniqueId,
+      hookValue
+    );
+    utils.__doNotTouchsetHookUniqueId(currentComponent, hookUniqueId);
+  } else {
+    hookUniqueId = utils.getHookUniqueId(currentComponent);
+  }
+
+  utils.__doNotTouchIncreamentCurrentHookPosition(currentComponent);
+
+  return [utils.getHookValue(currentComponent, hookUniqueId),hookUniqueId]
+}
+
 const React = {
   rendererFunctions: {},
   batchedFunctionsForUpdates: new Set(),
@@ -221,31 +253,13 @@ const React = {
   //hooks section
 
   useState: function (initialValue) {
-    const currentComponent = React.getCurrentRunningComponent();
-
-    let hookUniqueId;
+  
+    const [value,hookUniqueId] = initalizeHook(initialValue) 
+  
     //make call at the inital point.
-    if (utils.isMounting(currentComponent.status)) {
-      hookUniqueId = utils.generateHookUniqueId();
-
-      const hookValue = {
-        type: 'useState',
-        value:
-          typeof initialValue === 'function' ? initialValue() : initialValue,
-      };
-      utils.__doNotTouchRegisterHookToComponent(
-        currentComponent,
-        hookUniqueId,
-        hookValue
-      );
-      utils.__doNotTouchsetHookUniqueId(currentComponent, hookUniqueId);
-    } else {
-      hookUniqueId = utils.getHookUniqueId(currentComponent);
-    }
-
-    utils.__doNotTouchIncreamentCurrentHookPosition(currentComponent);
 
     let setter = function (params) {
+      const currentComponent = React.getCurrentRunningComponent();
       const value = utils.getHookValue(currentComponent, hookUniqueId);
       const newValue = typeof params === 'function' ? params(value) : params;
       const isStateSame = value === newValue; //check logic for shallowEquals
@@ -255,35 +269,13 @@ const React = {
       if (!isStateSame) React.addToBatch(currentComponent.__id);
     };
 
-    return [utils.getHookValue(currentComponent, hookUniqueId), setter];
+    return [value, setter];
   },
 
   useRef: function (initialValue) {
-    const currentComponent = React.getCurrentRunningComponent();
-    let hookUniqueId;
-    //make call at the inital point.
-    if (utils.isMounting(currentComponent.status)) {
-      hookUniqueId = utils.generateHookUniqueId();
+    const [value] = initalizeHook({current:initialValue},"useRef");
 
-      const hookValue = {
-        type: 'useRef',
-        value: {
-          current: initialValue,
-        },
-      };
-
-      utils.__doNotTouchRegisterHookToComponent(
-        currentComponent,
-        hookUniqueId,
-        hookValue
-      );
-      utils.__doNotTouchsetHookUniqueId(currentComponent, hookUniqueId);
-    } else {
-      hookUniqueId = utils.getHookUniqueId(currentComponent);
-    }
-    utils.__doNotTouchIncreamentCurrentHookPosition(currentComponent);
-
-    return utils.getHookValue(currentComponent, hookUniqueId);
+    return value
   },
 
   useReducer: function (reducer, initArgs, initFn) {
@@ -291,29 +283,11 @@ const React = {
     if (typeof reducer !== 'function')
       throw new Error('reducer should be a function');
 
-    const currentComponent = React.getCurrentRunningComponent();
-    let hookUniqueId;
+    const [value,hookUniqueId] = initalizeHook(typeof initFn === "function" ? ()=>initFn(initArgs):initArgs,"useReducer")
 
-    if (utils.isMounting(currentComponent.status)) {
-      hookUniqueId = utils.generateHookUniqueId();
-      const hookValue = {
-        type: 'useReducer',
-        value: initFn ? initFn(initArgs) : initArgs,
-      };
-      utils.__doNotTouchRegisterHookToComponent(
-        currentComponent,
-        hookUniqueId,
-        hookValue
-      );
-
-      utils.__doNotTouchsetHookUniqueId(currentComponent, hookUniqueId);
-    } else {
-      hookUniqueId = utils.getHookUniqueId(currentComponent);
-    }
-
-    utils.__doNotTouchIncreamentCurrentHookPosition(currentComponent);
-
+   
     const setter = function (actionDetails) {
+      const currentComponent = React.getCurrentRunningComponent();
       const value = utils.getHookValue(currentComponent, hookUniqueId);
       if (!actionDetails.type) throw new Error('Action must have type');
 
@@ -324,7 +298,7 @@ const React = {
       if (!isStateSame) React.addToBatch(currentComponent.__id);
     };
 
-    return [utils.getHookValue(currentComponent, hookUniqueId), setter];
+    return [value, setter];
   },
 
   useMemo: function (fn, currentDeps) {
